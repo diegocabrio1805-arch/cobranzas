@@ -54,11 +54,13 @@ export const calculateTotalPaidFromLogs = (loanOrId: any, collectionLogs: any[])
   const validLogs = (Array.isArray(collectionLogs) ? collectionLogs : []).filter(log => {
     const logLoanId = log.loanId || log.loan_id;
     const logType = log.type;
+    const isOpening = log.isOpening || log.is_opening || false;
+    const isDeleted = log.deletedAt || log.deleted_at;
 
     return logLoanId === loanId &&
       (logType === 'PAGO' || logType === CollectionLogType.PAYMENT) &&
-      !log.isOpening &&
-      !log.deletedAt;
+      !isOpening &&
+      !isDeleted;
   });
 
   return validLogs.reduce((acc: number, log: any) => acc + (Number(log.amount) || 0), 0);

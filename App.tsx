@@ -364,22 +364,31 @@ const App: React.FC = () => {
         mappedData.collectionLogs = mappedData.collectionLogs.map(l => ({
           ...l,
           loanId: l.loanId || (l as any).loan_id,
+          clientId: l.clientId || (l as any).client_id,
           collectorId: (l as any).collectorId || (l as any).collector_id,
-          receiptNumber: (l as any).receiptNumber || (l as any).receipt_number
+          receiptNumber: (l as any).receiptNumber || (l as any).receipt_number,
+          isOpening: (l as any).isOpening !== undefined ? (l as any).isOpening : (l as any).is_opening,
+          isRenewal: (l as any).isRenewal !== undefined ? (l as any).isRenewal : (l as any).is_renewal,
+          isVirtual: (l as any).isVirtual !== undefined ? (l as any).isVirtual : (l as any).is_virtual,
+          deletedAt: (l as any).deletedAt || (l as any).deleted_at
         }));
       }
       if (mappedData.payments) {
         mappedData.payments = mappedData.payments.map(p => ({
           ...p,
           loanId: p.loanId || (p as any).loan_id,
-          clientId: p.clientId || (p as any).client_id
+          clientId: p.clientId || (p as any).client_id,
+          collectorId: (p as any).collectorId || (p as any).collector_id,
+          deletedAt: (p as any).deletedAt || (p as any).deleted_at
         }));
       }
       if (mappedData.loans) {
         mappedData.loans = mappedData.loans.map(lo => ({
           ...lo,
           clientId: lo.clientId || (lo as any).client_id,
-          collectorId: lo.collectorId || (lo as any).collector_id
+          collectorId: lo.collectorId || (lo as any).collector_id,
+          isRenewal: (lo as any).isRenewal !== undefined ? (lo as any).isRenewal : (lo as any).is_renewal,
+          deletedAt: (lo as any).deletedAt || (lo as any).deleted_at
         }));
       }
 
