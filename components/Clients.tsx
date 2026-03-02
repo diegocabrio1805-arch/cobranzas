@@ -423,7 +423,7 @@ const Clients: React.FC<ClientsProps> = ({ state, addClient, addLoan, updateClie
 
   const getClientMetrics = (client: Client) => {
     if (!client) return { balance: 0, installmentsStr: '0/0', cuotasTP: '0/0', daysOverdue: 0, activeLoan: null, totalPaid: 0, lastExpiryDate: '', createdAt: '', isFullyPaid: false, maxDaysOverdue: 0, hasMultipleLoans: false };
-    const clientLoans = (Array.isArray(state.loans) ? state.loans : []).filter(l => l.clientId === client.id && (l.status === LoanStatus.ACTIVE || l.status === LoanStatus.DEFAULT));
+    const clientLoans = (Array.isArray(state.loans) ? state.loans : []).filter(l => (l.clientId || (l as any).client_id) === client.id && (l.status === LoanStatus.ACTIVE || l.status === LoanStatus.DEFAULT));
     const sortedLoans = clientLoans.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const activeLoan = sortedLoans[0];
     const hasMultipleLoans = clientLoans.length > 1;
@@ -431,11 +431,10 @@ const Clients: React.FC<ClientsProps> = ({ state, addClient, addLoan, updateClie
     let balance = 0, installmentsStr = '0/0', daysOverdue = 0, totalPaid = 0, lastExpiryDate = '', createdAt = '', cuotasTP = '0/0', isFullyPaid = false, maxDaysOverdue = 0;
 
     if (activeLoan) {
-      // Calculamos métricas base del más reciente para visualización de cuotas/mora
-      const installments = Array.isArray(activeLoan.installments) ? activeLoan.installments : [];
+      // USAR SIEMPRE LA FUNCIÓN ROBUSTA UNIFICADA
       totalPaid = calculateTotalPaidFromLogs(activeLoan, state.collectionLogs);
 
-      // Saldo Pendiente Consolidado: Sumamos saldos de todos los préstamos activos/mora
+      // Saldo Pendiente Consolidado
       balance = clientLoans.reduce((sum, l) => {
         const lPaid = calculateTotalPaidFromLogs(l, state.collectionLogs);
         return sum + Math.max(0, l.totalAmount - lPaid);
@@ -462,8 +461,9 @@ const Clients: React.FC<ClientsProps> = ({ state, addClient, addLoan, updateClie
         .map(i => getDaysOverdue(i.dueDate, state.settings));
       maxDaysOverdue = daysOverdueArr.length > 0 ? Math.max(...daysOverdueArr) : 0;
 
-      if (installments.length > 0) {
-        lastExpiryDate = installments[installments.length - 1].dueDate;
+      if (activeLoan.installments && activeLoan.installments.length > 0) {
+        const insts = activeLoan.installments;
+        lastExpiryDate = insts[insts.length - 1].dueDate;
       }
       createdAt = activeLoan.createdAt;
 

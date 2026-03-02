@@ -62,7 +62,7 @@ const App: React.FC = () => {
         const match = text.match(/CURRENT_VERSION\s*=\s*'([^']+)'/);
         if (match && match[1]) {
           const remoteVersion = match[1];
-          const localVersion = '6.1.162'; // UPDATE THIS CONSTANT WHEN BUMPING VERSION
+          const localVersion = '6.1.164'; // UPDATE THIS CONSTANT WHEN BUMPING VERSION
           if (remoteVersion !== localVersion) {
             console.log("CRITICAL UPDATE DETECTED! Updating from", localVersion, "to", remoteVersion);
             localStorage.removeItem('pwa_app_version'); // Force the index.html sw killer to run on next reload
@@ -365,6 +365,7 @@ const App: React.FC = () => {
           ...l,
           loanId: l.loanId || (l as any).loan_id,
           clientId: l.clientId || (l as any).client_id,
+          branchId: l.branchId || (l as any).branch_id,
           collectorId: (l as any).collectorId || (l as any).collector_id,
           receiptNumber: (l as any).receiptNumber || (l as any).receipt_number,
           isOpening: (l as any).isOpening !== undefined ? (l as any).isOpening : (l as any).is_opening,
@@ -378,6 +379,7 @@ const App: React.FC = () => {
           ...p,
           loanId: p.loanId || (p as any).loan_id,
           clientId: p.clientId || (p as any).client_id,
+          branchId: p.branchId || (p as any).branch_id,
           collectorId: (p as any).collectorId || (p as any).collector_id,
           deletedAt: (p as any).deletedAt || (p as any).deleted_at
         }));
@@ -386,9 +388,19 @@ const App: React.FC = () => {
         mappedData.loans = mappedData.loans.map(lo => ({
           ...lo,
           clientId: lo.clientId || (lo as any).client_id,
+          branchId: lo.branchId || (lo as any).branch_id,
           collectorId: lo.collectorId || (lo as any).collector_id,
           isRenewal: (lo as any).isRenewal !== undefined ? (lo as any).isRenewal : (lo as any).is_renewal,
           deletedAt: (lo as any).deletedAt || (lo as any).deleted_at
+        }));
+      }
+      if (mappedData.clients) {
+        mappedData.clients = mappedData.clients.map(c => ({
+          ...c,
+          documentId: (c as any).documentId || (c as any).document_id,
+          branchId: (c as any).branchId || (c as any).branch_id,
+          addedBy: (c as any).addedBy || (c as any).added_by,
+          deletedAt: (c as any).deletedAt || (c as any).deleted_at
         }));
       }
 
@@ -591,11 +603,14 @@ const App: React.FC = () => {
       const collectorIdLower = itemCollectorId?.toLowerCase();
       const itemBranchLower = itemBranchId?.toLowerCase();
 
-      // AddedBy or CollectorId match my direct team
+      // PRIORITIZE BRANCH ISOLATION: If item belongs to a branch and it's NOT mine, return false immediately.
+      // This prevents managers/collectors from seeing other managers' rosters even if they created the record.
+      if (itemBranchLower && itemBranchLower !== bId) return false;
+
+      // Fallback: If no branch is specified, allow access if added by me or my team.
+      // Or if it matches my branch ID.
       if (addedByLower === myId || (addedByLower && myDirectCollectorIds.has(addedByLower))) return true;
       if (collectorIdLower === myId || (collectorIdLower && myDirectCollectorIds.has(collectorIdLower))) return true;
-
-      // BranchId match
       if (itemBranchLower === bId) return true;
 
       return false;
@@ -1090,7 +1105,7 @@ const App: React.FC = () => {
                 <i className={`fa-solid ${isMobileMenuOpen ? 'fa-xmark' : 'fa-bars-staggered'}`}></i>
               </button>
               <div>
-                <h1 className="text-sm font-black text-emerald-600 uppercase tracking-tighter leading-none">{state.settings.companyName || 'Anexo Cobro'} <span className="text-[10px] opacity-50 ml-1">v6.1.162-APK</span></h1>
+                <h1 className="text-sm font-black text-emerald-600 uppercase tracking-tighter leading-none">{state.settings.companyName || 'Anexo Cobro'} <span className="text-[10px] opacity-50 ml-1">v6.1.164-APK</span></h1>
                 <div className="flex items-center gap-2 mt-1">
                   <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
                   <span className={`text-[8px] font-black uppercase tracking-widest ${isOnline ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -1102,7 +1117,7 @@ const App: React.FC = () => {
 
             <div className="flex items-center gap-2">
               {queueLength > 0 && <span className="text-[8px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200 animate-pulse">{queueLength}</span>}
-              <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 uppercase tracking-tighter">v6.1.162-APK</span>
+              <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 uppercase tracking-tighter">v6.1.164-APK</span>
               <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white text-xs font-black" onClick={() => setActiveTab('profile')}>
                 {state.currentUser?.name.charAt(0)}
               </div>
