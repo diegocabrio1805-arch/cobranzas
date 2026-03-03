@@ -1431,7 +1431,8 @@ const Clients: React.FC<ClientsProps> = ({ state, addClient, addLoan, updateClie
       doc.setFont("helvetica", "bold");
       doc.setFontSize(22);
       doc.setTextColor(15, 23, 42); // slate-900
-      doc.text(state.settings.companyName.toUpperCase(), margin, y);
+      const companyTitle = (state.settings.companyName || 'SISTEMA DE COBROS').toUpperCase();
+      doc.text(companyTitle, margin, y);
 
       y += 8;
       doc.setFontSize(12);
@@ -1476,7 +1477,8 @@ const Clients: React.FC<ClientsProps> = ({ state, addClient, addLoan, updateClie
       doc.setTextColor(30, 41, 59);
 
       // CONTENIDO
-      carteraExcelData.forEach((client, idx) => {
+      const dataToExport = Array.isArray(carteraExcelData) ? carteraExcelData : [];
+      dataToExport.forEach((client, idx) => {
         // Salto de página
         if (y > 270) {
           doc.addPage();
@@ -1508,27 +1510,29 @@ const Clients: React.FC<ClientsProps> = ({ state, addClient, addLoan, updateClie
 
         doc.setFontSize(7);
         doc.setFont("helvetica", "bold");
-        doc.text(client.name.substring(0, 25).toUpperCase(), margin + 2, y + 4.5);
+        const clientNameDisplay = (client.name || 'SIN NOMBRE').substring(0, 25).toUpperCase();
+        doc.text(clientNameDisplay, margin + 2, y + 4.5);
         doc.setFontSize(5.5);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(148, 163, 184);
-        doc.text(`ID: ${client.documentId}`, margin + 2, y + 7.5);
+        const clientIdDisplay = client.documentId || '---';
+        doc.text(`ID: ${clientIdDisplay}`, margin + 2, y + 7.5);
 
         doc.setFontSize(7);
         doc.setTextColor(30, 41, 59);
-        doc.text(client.phone, margin + 50, y + 6);
+        doc.text(client.phone || '---', margin + 50, y + 6);
 
         doc.setFont("helvetica", "bold");
         doc.text(formatCurrency(client._metrics.activeLoan?.totalAmount || 0, state.settings), margin + 85, y + 6, { align: 'right' });
 
         doc.setFont("helvetica", "normal");
-        doc.text(client._metrics.cuotasTP, margin + 105, y + 6, { align: 'center' });
+        doc.text(client._metrics.cuotasTP || '0/0', margin + 105, y + 6, { align: 'center' });
 
         doc.setFont("helvetica", "bold");
-        doc.text(formatCurrency(client._metrics.balance, state.settings), margin + 130, y + 6, { align: 'right' });
+        doc.text(formatCurrency(client._metrics.balance || 0, state.settings), margin + 130, y + 6, { align: 'right' });
 
         doc.setFont("helvetica", "normal");
-        doc.text(client._metrics.installmentsStr, margin + 155, y + 6, { align: 'center' });
+        doc.text(client._metrics.installmentsStr || '0/0', margin + 155, y + 6, { align: 'center' });
 
         if (client._metrics.daysOverdue > 0) {
           doc.setTextColor(220, 38, 38);
@@ -1554,11 +1558,11 @@ const Clients: React.FC<ClientsProps> = ({ state, addClient, addLoan, updateClie
         doc.text(`PÁGINA ${i} DE ${pageCount} | GENERADO EL ${new Date().toLocaleString()}`, 105, 290, { align: 'center' });
       }
 
-      doc.save(`CARTERA_${collectorName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
-      alert("PDF GENERADO CORRECTAMENTE");
+      const fileName = `CARTERA_${collectorName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      await saveAndOpenPDF(doc, fileName);
     } catch (err) {
       console.error(err);
-      alert("ERROR AL GENERAR PDF");
+      alert("ERROR AL GENERAR PDF: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
