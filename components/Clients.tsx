@@ -186,8 +186,12 @@ const Clients: React.FC<ClientsProps> = ({ state, addClient, addLoan, updateClie
 
   const handleViewPhotoAsPDF = async (imageSrc: string, title: string, client: Client) => {
     try {
+      if (!imageSrc) return;
       const isPdf = imageSrc.startsWith('data:application/pdf') || imageSrc.includes('pdf');
-      const fileName = `${client.name.replace(/\s+/g, '_')}_${title}_${state.currentUser?.name || 'user'}.pdf`;
+      // Clean filename: remove spaces and special characters for Android compatibility
+      const cleanClientName = (client.name || 'SinNombre').replace(/[^a-zA-Z0-9]/g, '_');
+      const cleanTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
+      const fileName = `${cleanClientName}_${cleanTitle}.pdf`;
 
       if (isPdf) {
         await saveAndOpenBase64PDF(imageSrc, fileName);
@@ -200,7 +204,12 @@ const Clients: React.FC<ClientsProps> = ({ state, addClient, addLoan, updateClie
 
       // Title
       doc.setFontSize(16);
-      doc.text(`Expediente: ${client.name} - ${title} `, 10, 15);
+      doc.text(`Expediente: ${client.name} - ${title}`, 10, 15);
+
+      // Dynamic Image Format Detection
+      let format = 'JPEG';
+      if (imageSrc.startsWith('data:image/png')) format = 'PNG';
+      else if (imageSrc.startsWith('data:image/webp')) format = 'WEBP';
 
       // Add image
       const imgProps = doc.getImageProperties(imageSrc);
@@ -208,16 +217,28 @@ const Clients: React.FC<ClientsProps> = ({ state, addClient, addLoan, updateClie
       let imgWidth = pageWidth - 20; // 10px margin each side
       let imgHeight = imgWidth / ratio;
 
-      if (imgHeight > pageHeight - 30) {
-        imgHeight = pageHeight - 30;
+      if (imgHeight > pageHeight - 40) {
+        imgHeight = pageHeight - 40;
         imgWidth = imgHeight * ratio;
       }
 
-      doc.addImage(imageSrc, 'JPEG', 10, 25, imgWidth, imgHeight);
+      // Add white background for PNG transparency support
+      if (format === 'PNG') {
+        doc.setFillColor(255, 255, 255);
+        doc.rect(10, 25, imgWidth, imgHeight, 'F');
+      }
+
+      doc.addImage(imageSrc, format as any, 10, 25, imgWidth, imgHeight);
+
+      // Footer info
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(`Generado por Anexo Cobros - ${new Date().toLocaleString()}`, 10, pageHeight - 10);
+
       await saveAndOpenPDF(doc, fileName);
     } catch (e) {
       console.error("Error generating/opening PDF", e);
-      alert("Error al abrir el documento.");
+      alert("No se pudo abrir la foto. Intente de nuevo.");
     }
   };
 
@@ -411,17 +432,21 @@ const Clients: React.FC<ClientsProps> = ({ state, addClient, addLoan, updateClie
   useEffect(() => {
     if (showLegajo && fetchClientPhotos && updateClient) {
       const client = (Array.isArray(state.clients) ? state.clients : []).find(c => c.id === showLegajo);
-      // Solo disparar si el cliente existe y NO tiene ninguna foto cargada aún
-      if (client && !client.profilePic && !client.housePic && !client.businessPic && !client.documentPic) {
-        console.log("[Clients] Fetching photos for legajo:", showLegajo);
+      // Solo disparar si el cliente existe y le faltan fotos pero sabemos que debería tenerlas (o simplemente para asegurar)
+      if (client && (!client.profilePic || !client.documentPic || !client.housePic || !client.businessPic)) {
+        console.log("[Clients] Verificando fotos para legajo:", showLegajo);
         fetchClientPhotos(showLegajo).then(photos => {
           if (photos && Object.keys(photos).length > 0) {
-            updateClient({ ...client, ...photos });
+            // Verificar si realmente hay cambios para evitar re-renderizados infinitos
+            const hasChanges = Object.keys(photos).some(key => photos[key as keyof any] !== (client as any)[key]);
+            if (hasChanges) {
+              updateClient({ ...client, ...photos });
+            }
           }
         }).catch(err => console.error("Error fetching client photos:", err));
       }
     }
-  }, [showLegajo]); // Reducir dependencias para evitar bucles con state.clients
+  }, [showLegajo, state.clients.length]); // Usar length para detectar nuevos clientes sin disparar por cada cambio de atributo
 
   const shareCardRef = useRef<HTMLDivElement>(null);
   const statementRef = useRef<HTMLDivElement>(null);
