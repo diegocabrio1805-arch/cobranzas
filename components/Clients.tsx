@@ -55,7 +55,7 @@ const compressImage = (base64: string, maxWidth = 800, maxHeight = 800): Promise
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       ctx?.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.6));
+      resolve(canvas.toDataURL('image/webp', 0.7));
     };
     img.onerror = () => resolve(base64);
   });
@@ -152,7 +152,7 @@ const PhotoUploadField = ({ label, field, value, onFileChange, onView, forEdit =
                   <i className="fa-solid fa-camera text-[10px]"></i>
                   <input
                     type="file"
-                    accept="image/*,application/pdf"
+                    accept="image/*"
                     onChange={(e) => onFileChange(e, field, forEdit)}
                     className="hidden"
                   />
@@ -169,7 +169,7 @@ const PhotoUploadField = ({ label, field, value, onFileChange, onView, forEdit =
             <span className="text-[7px] font-black text-slate-500 uppercase mt-2 group-hover:text-blue-600">Subir Imagen</span>
             <input
               type="file"
-              accept="image/*,application/pdf"
+              accept="image/*"
               onChange={(e) => onFileChange(e, field, forEdit)}
               className="absolute inset-0 opacity-0 cursor-pointer"
             />
@@ -438,9 +438,31 @@ const Clients: React.FC<ClientsProps> = ({ state, addClient, addLoan, updateClie
         fetchClientPhotos(showLegajo).then(photos => {
           if (photos && Object.keys(photos).length > 0) {
             // Verificar si realmente hay cambios para evitar re-renderizados infinitos
-            const hasChanges = Object.keys(photos).some(key => photos[key as keyof any] !== (client as any)[key]);
-            if (hasChanges) {
-              updateClient({ ...client, ...photos });
+            // Y CRUCIAL: No sobrescribir una foto local en Base64 con un 'null' o 'falsy' del servidor
+            // Esto evita la condición de carrera donde el servidor aún no tiene la foto tras un guardado reciente.
+            const safePhotosToUpdate: Partial<Client> = {};
+            let hasChanges = false;
+
+            Object.entries(photos).forEach(([key, remoteValue]) => {
+              const localValue = (client as any)[key];
+
+              // Si el servidor tiene un valor válido (la URL), y es diferente al local, lo tomamos.
+              // Si el servidor devuelve null/vacio, PERO nosotros ya tenemos algo local (como el base64),
+              // NO lo sobrescribimos. Lo ignoramos.
+              if (remoteValue !== localValue) {
+                if (remoteValue) {
+                  (safePhotosToUpdate as any)[key] = remoteValue;
+                  hasChanges = true;
+                } else if (!localValue) {
+                  // Ambos están vacios de formas distintas, o el remoto confirma que debe estar vacio.
+                  // Solo actualizamos si ambos están falsy para no romper referencias si es necesario,
+                  // pero en la práctica, si remoto es vacio y local tiene base64, ignoramos esta rama.
+                }
+              }
+            });
+
+            if (hasChanges && Object.keys(safePhotosToUpdate).length > 0) {
+              updateClient({ ...client, ...safePhotosToUpdate });
             }
           }
         }).catch(err => console.error("Error fetching client photos:", err));
